@@ -21,12 +21,6 @@ from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parent
 
-"""Vel Spor kare gorsel uretici (1080x1080)."""
-from pathlib import Path
-import random
-
-from PIL import Image, ImageDraw, ImageFont
-
 LOGO_PATH = ROOT / "logo.png"
 
 S = 1080
@@ -284,9 +278,8 @@ def make(cat, lvl, text, src, out, claim=False):
     img.save(out)
     return img
 
-"""Basliga bakarak kategori, onem seviyesi ve 'iddia' tespiti."""
-import re
 
+# ---------------- siniflandirma ----------------
 
 def tr_lower(s):
     return s.replace("İ", "i").replace("I", "ı").lower()
@@ -346,13 +339,11 @@ def level_for(title, category, claim):
         return "A"
     return "B"
 
-"""Haber kaynaklari.
 
-official: kulup/federasyon gibi resmi kaynak (haber 'iddia' sayilmaz)
-filter:   True ise sadece icinde 'Galatasaray' gecen haberler alinir
-hint:     siniflandirici kategori bulamazsa kullanilacak kategori
-"""
-from urllib.parse import quote_plus
+# ---------------- kaynaklar ----------------
+# official: kulup/federasyon gibi resmi kaynak (haber 'iddia' sayilmaz)
+# filter:   True ise sadece icinde 'Galatasaray' gecen haberler alinir
+# hint:     siniflandirici kategori bulamazsa kullanilacak kategori
 
 GN = "https://news.google.com/rss/search?q={q}&hl=tr&gl=TR&ceid=TR:tr"
 
@@ -380,13 +371,8 @@ FEEDS = [
     dict(name="Google Haberler: Avrupa", url=gn("Galatasaray UEFA Avrupa"), official=False, filter=False, hint="Avrupa"),
 ]
 
-"""Dis paket gerektirmeyen kucuk RSS/Atom okuyucu."""
-import html
-import re
-import urllib.request
-import xml.etree.ElementTree as ET
-from datetime import datetime, timezone
-from email.utils import parsedate_to_datetime
+
+# ---------------- RSS okuyucu ----------------
 
 UA = "Mozilla/5.0 (compatible; VelSporBot/1.0)"
 TAG_RE = re.compile(r"<[^>]+>")
@@ -453,14 +439,11 @@ def rss_fetch(url, timeout=20):
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         return rss_parse(resp.read())
 
-import json
-import os
-import urllib.request
-import uuid
 
+# ---------------- Telegram ----------------
 
 def _clean_secret(s):
-    # kopyalarken karisan gorunmez karakterleri (bosluk, ‎ vb.) at
+    # gorunmez karakterleri at
     return re.sub(r"[^\x21-\x7e]", "", s or "")
 
 
@@ -511,14 +494,8 @@ def tg_send_photo(path, caption):
     with urllib.request.urlopen(req, timeout=60) as r:
         return json.loads(r.read())
 
-"""Vel Spor haber botu: haberleri toplar, gorsele cevirir, Telegram'a yollar."""
-import json
-import os
-import re
-import sys
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
 
+# ---------------- ana akis ----------------
 
 STATE = ROOT / "state" / "seen.json"
 OUT = ROOT / "out"
@@ -566,4 +543,17 @@ def collect(feed):
         raw = rss_fetch(feed["url"])
     except Exception as e:  # noqa: BLE001
         return [], f"{type(e).__name__}: {e}"
-    now = 
+    now = datetime.now(timezone.utc)
+    out = []
+    for it in raw:
+        title = it["title"]
+        source = feed["name"]
+        if "news.google.com" in feed["url"]:
+            if it["source"]:
+                source = it["source"]
+                suffix = " - " + it["source"]
+                if title.endswith(suffix):
+                    title = title[: -len(suffix)]
+            elif " - " in title:
+                title, source = title.rsplit(" - ", 1)
+        if feed["filter"] and "galatasaray" not in tr_lower(title + " " + it["summar
