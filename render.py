@@ -24,9 +24,10 @@ LEVELS = {"A": "SON DAKİKA", "B": "GÜNDEM", "C": "ARŞİV"}
 # kategori -> (duzen, palet)
 CATS = {
     "Maç Öncesi":          ("center", "BURG"),
-    "Maç İçi":             ("chevron", "BLACK"),
+    "Maç İçi":             ("big",     "BLACK"),
     "Transfer":            ("big", "BURG"),
-    "Oyuncu Performansı":  ("chevron", "BURG"),
+    "Oyuncu Performansı":  ("center",  "BLACK"),
+    "Oyuncu Değişikliği":  ("chevron", "BURG"),
     "Disiplin ve Ceza":    ("frame", "BLACK"),
     "Sakatlık":            ("bar", "BURG"),
     "Kulüp ve Yönetim":    ("frame", "BURG"),
@@ -34,7 +35,7 @@ CATS = {
     "Puan Durumu":         ("bar", "BLACK"),
     "Antrenman":           ("split", "BLACK"),
     "Taraftar ve Stadyum": ("split", "BURG"),
-    "Açıklamalar":         ("big", "BLACK"),
+    "Açıklamalar":         ("bar",   "BLACK"),
     "Avrupa":              ("center", "NAVY"),
     "Gündem":              ("split", "BURG"),
 }
@@ -228,18 +229,14 @@ def top_label(img, p, cat, lvl, y=62, x0=70):
 def l_center(img, cat, lvl, text, src, p):
     overlay_lines(img, p)
     top_label(img, p, cat, lvl)
-    big = tr_upper(cat).split(" ")
-    if len(big) > 2:
-        big = [" ".join(big[:-1]), big[-1]]
-    size = 190
-    while max(tw(b, size) for b in big) > 900 and size > 60:
-        size -= 6
-    y = 190
-    for i, b in enumerate(big):
-        draw_text(img, S // 2, y + i * int(size * 1.0), b, size, p["text"], anchor="m")
-    y += len(big) * int(size * 1.0) + 24
+    size, lines = fit(tr_upper(text), 900, 520, 240, minsize=90, lh=0.98)
+    step = int(size * 0.98)
+    y = 170 + (560 - step * len(lines)) // 2
+    for i, l in enumerate(lines):
+        draw_text(img, S // 2, y + i * step, l, size, p["text"], anchor="m")
+    y += step * len(lines) + 26
     ImageDraw.Draw(img).line([(S // 2 - 60, y), (S // 2 + 60, y)], fill=p["text"], width=4)
-    headline(img, text, 90, y + 30, 900, 940 - y - 40, p["small"], start=62, align="m")
+    spaced(img, S // 2, y + 28, tr_upper(cat), 28, p["small"], gap=9, anchor="m")
     footer(img, p, src)
 
 
@@ -250,7 +247,7 @@ def l_chevron(img, cat, lvl, text, src, p):
     chevrons(d, 90, 160, 120, True, p["text"])
     chevrons(d, S - 210, 880, 120, False, p["text"])
     spaced(img, S // 2, 160, tr_upper(cat), 30, p["text"], gap=9, anchor="m")
-    headline(img, text, 90, 250, 900, 580, p["text"], start=124, align="m")
+    headline(img, text, 90, 250, 900, 580, p["text"], start=210, align="m")
     footer(img, p, src, y=960, h=70)
 
 
@@ -262,7 +259,7 @@ def l_big(img, cat, lvl, text, src, p):
     w = int(tw(t, 38) + 60)
     d.rectangle([70, 150, 70 + w, 150 + 62], fill=p["text"])
     draw_text(img, 100, 158, t, 38, p["on"])
-    headline(img, text, 70, 250, 940, 600, p["text"], start=132)
+    headline(img, text, 70, 250, 940, 600, p["text"], start=220)
     d.polygon([(0, 905), (S, 835), (S, 850), (0, 920)], fill=p["line"])
     footer(img, p, src, y=950, h=84)
 
@@ -278,7 +275,7 @@ def l_split(img, cat, lvl, text, src, p):
     w = int(tw(t, 38) + 60)
     d.rectangle([70, 150, 70 + w, 150 + 62], fill=p["text"])
     draw_text(img, 100, 158, t, 38, p["on"])
-    headline(img, text, 70, 250, 500, 600, p["text"], start=112)
+    headline(img, text, 70, 250, 500, 600, p["text"], start=170)
     footer(img, p, src, y=950, h=84)
 
 
@@ -296,7 +293,7 @@ def l_bar(img, cat, lvl, text, src, p):
     rot = text_layer(t, size, p["text"]).rotate(90, expand=True)
     img.paste(rot, (60, S - 120 - rot.height), rot)
     top_label(img, p, cat, lvl, x0=250)
-    headline(img, text, 250, 160, 760, 700, p["text"], start=120)
+    headline(img, text, 250, 160, 760, 700, p["text"], start=200)
     d = ImageDraw.Draw(img)
     d.line([(250, 960), (S - 70, 960)], fill=p["line"], width=2)
     spaced(img, 250, 985, "VEL SPOR", 24, p["text"], gap=8)
@@ -319,7 +316,7 @@ def l_frame(img, cat, lvl, text, src, p):
     d.rectangle([x0, 30, x0 + w, 100], fill=p["dark"], outline=p["text"], width=3)
     draw_text(img, S // 2, 44, t, f + 6, p["text"], anchor="m")
     spaced(img, S // 2, 128, "GALATASARAY · " + LEVELS[lvl], 24, p["small"], gap=7, anchor="m")
-    headline(img, text, 110, 190, 860, 650, p["text"], start=122, align="m")
+    headline(img, text, 110, 190, 860, 650, p["text"], start=220, align="m")
     footer(img, p, src, y=905, h=84)
 
 

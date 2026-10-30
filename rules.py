@@ -20,6 +20,7 @@ RULES = [
     ("Taraftar ve Stadyum", r"bilet|taraftar|kombine|tribün|stadyum|koreografi|deplasman yasağı"),
     ("Kulüp ve Yönetim", r"başkan|yönetim|\bkap\b|resmi açıklama|sponsor|kongre|divan|kulüpten"),
     ("Oyuncu Performansı", r"asist|istatistik|rekor|gol sayısı|maçın adamı|maçın oyuncusu|gol krallığı|performans"),
+    ("Oyuncu Değişikliği", r"oyuncu değişikliği|oyuna girdi|oyundan çıktı|değişiklik yaptı|yerine girdi"),
     ("Maç İçi", r"\bgol(ü|le|ler|ünü)?\b|penaltı|\bvar\b|maç sonucu|maç sona erdi|ilk yarı|devre arası|canlı anlatım"),
     ("Açıklamalar", r"açıklama|konuştu|röportaj|basın toplantısı|\bdedi\b|okan buruk"),
 ]
@@ -93,3 +94,65 @@ def clean_title(t):
         else:
             break
     return t
+
+
+# Gorselde buyuk yazilacak kisa baslik (ilk eslesen kazanir). Eslesmezse None.
+SHORT = [
+    (r"oyuncu değişikliği|oyuna girdi|oyundan çıktı|değişiklik yaptı|yerine girdi", "OYUNCU DEĞİŞİKLİĞİ"),
+    (r"muhtemel 11", "MUHTEMEL 11"),
+    (r"ilk 11", "İLK 11"),
+    (r"kamp kadrosu", "KAMP KADROSU"),
+    (r"maç kadrosu|kadroya|kadro açıklandı", "MAÇ KADROSU"),
+    (r"hakem.*(tartış|hata|eleştir)", "HAKEM TARTIŞMASI"),
+    (r"hakem", "MAÇIN HAKEMİ"),
+    (r"saat kaçta|hangi kanalda|şifresiz|maç saati", "MAÇ SAATİ"),
+    (r"kırmızı kart", "KIRMIZI KART"),
+    (r"sarı kart", "SARI KART"),
+    (r"pfdk|disipline sevk", "PFDK KARARI"),
+    (r"hak mahrumiyeti", "HAK MAHRUMİYETİ"),
+    (r"\bceza", "CEZA KARARI"),
+    (r"penaltı", "PENALTI"),
+    (r"maç sona erdi|maç sonucu|maç bitti", "MAÇ SONUCU"),
+    (r"devre arası|ilk yarı", "İLK YARI SONUCU"),
+    (r"\bgol(ü|le|ler|ünü)?\b", "GOL"),
+    (r"ameliyat", "AMELİYAT"),
+    (r"sakatl|\bsakat\b|tedavi|kas yırtığı", "SAKATLIK"),
+    (r"dönüş tarihi|sahalara dönüyor|takımla çalış", "SAHAYA DÖNÜŞ"),
+    (r"transfer.*tamamland|tamamlandı.*transfer|imzayı attı|imzaladı|imza attı", "TRANSFER TAMAMLANDI"),
+    (r"anlaşma sağlandı|anlaştı|anlaşmaya vardı", "ANLAŞMA SAĞLANDI"),
+    (r"resmi teklif|teklif yaptı|teklif etti|teklifte bulundu", "RESMİ TEKLİF"),
+    (r"kiralık", "KİRALIK"),
+    (r"sözleşme", "SÖZLEŞME"),
+    (r"ayrılık|yollarını ayırdı|ayrıldı", "AYRILIK"),
+    (r"peşinde|ilgileniyor|takip ediyor|transfer|bonservis|gözüne kestirdi", "TRANSFER GÜNDEMİ"),
+    (r"bilet.*(satış|satışa|satışta)", "BİLETLER SATIŞTA"),
+    (r"bilet", "BİLET DUYURUSU"),
+    (r"kombine", "KOMBİNE"),
+    (r"deplasman yasağı", "DEPLASMAN YASAĞI"),
+    (r"koreografi", "KOREOGRAFİ"),
+    (r"doğum günü", "DOĞUM GÜNÜ"),
+    (r"yıl dönümü|anıyoruz|rahmetle|vefat", "ANMA"),
+    (r"antrenman|idman", "İDMAN"),
+    (r"basın toplantısı", "BASIN TOPLANTISI"),
+    (r"röportaj", "RÖPORTAJ"),
+    (r"resmi açıklama|kulüpten açıklama|kap'a|kap’a|\bkap\b", "RESMİ AÇIKLAMA"),
+    (r"kongre|seçim", "KONGRE"),
+    (r"sponsor", "SPONSORLUK"),
+    (r"kura", "KURA ÇEKİMİ"),
+    (r"uefa", "UEFA KARARI"),
+    (r"puan durumu|liderlik|averaj|şampiyonluk yarışı", "PUAN DURUMU"),
+    (r"maçın adamı|maçın oyuncusu", "MAÇIN ADAMI"),
+    (r"rekor", "REKOR"),
+    (r"istatistik", "İSTATİSTİK"),
+    (r"okan buruk.*(açıklama|konuştu|dedi)|(açıklama|konuştu).*okan buruk", "OKAN BURUK AÇIKLADI"),
+    (r"konuştu|açıklama|açıkladı", "AÇIKLAMA"),
+]
+
+
+def short_for(title):
+    """Haber turune gore 2-3 kelimelik buyuk baslik; taninmazsa None."""
+    t = tr_lower(title)
+    for pattern, label in SHORT:
+        if re.search(pattern, t):
+            return label
+    return None
