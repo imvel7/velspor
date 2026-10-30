@@ -74,7 +74,6 @@ FEEDS = [
     dict(name="A Spor", url="https://www.aspor.com.tr/rss/galatasaray.xml", official=False, filter=False, hint=None),
     dict(name="Fotomaç", url="https://www.fotomac.com.tr/rss/Galatasaray.xml", official=False, filter=False, hint=None),
     dict(name="Ajansspor", url="https://ajansspor.com/rss", official=False, filter=True, hint=None),
-    dict(name="Transfermarkt", url="https://www.transfermarkt.com.tr/rss/news", official=False, filter=True, hint="Transfer"),
     # Google Haberler: her arama bir kategoriye denk gelir
     dict(name="Google Haberler: son dakika", url=gn("Galatasaray son dakika"), official=False, filter=False, hint=None),
     dict(name="Google Haberler: hakem", url=gn("Galatasaray maçının hakemi"), official=False, filter=False, hint="Maç Öncesi"),
@@ -88,3 +87,19 @@ FEEDS = [
     dict(name="Google Haberler: puan durumu", url=gn("Galatasaray puan durumu"), official=False, filter=False, hint="Puan Durumu"),
     dict(name="Google Haberler: Avrupa", url=gn("Galatasaray UEFA Avrupa"), official=False, filter=False, hint="Avrupa"),
 ]
+
+
+PREFIX = re.compile(r"^\s*(son dakika( spor haberi)?|flaş|flas|özel haber)\s*[|:!\-–—]+\s*", re.IGNORECASE)
+
+
+def clean_title(t):
+    """Basligin basindaki 'SON DAKIKA |' gibi tekrar eden onekleri at."""
+    t = re.sub(r"\s+", " ", t).strip()
+    for _ in range(2):
+        t2 = PREFIX.sub("", tr_lower(t))
+        if len(t2) < len(tr_lower(t)):
+            t = t[len(t) - len(t2):] if len(t) == len(tr_lower(t)) else t
+            t = t[:1].upper() + t[1:]
+        else:
+            break
+    return t

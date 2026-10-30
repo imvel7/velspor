@@ -9,14 +9,14 @@ from pathlib import Path
 
 from net import rss_fetch, tg_configured, tg_send_message, tg_send_photo
 from render import CATS, LEVELS, make
-from rules import FEEDS, classify, is_claim, level_for, tr_lower
+from rules import FEEDS, classify, clean_title, is_claim, level_for, tr_lower
 
 
 ROOT = Path(__file__).resolve().parent
 STATE = ROOT / "state" / "seen.json"
 OUT = ROOT / "out"
 
-MAX_PER_RUN = 6      # tek calismada en fazla kac gorsel
+MAX_PER_RUN = 4      # tek calismada en fazla kac gorsel
 MAX_FIRST_RUN = 3    # ilk calismada kac gorsel (geri kalani sessizce 'goruldu' isaretlenir)
 MAX_AGE_HOURS = 12   # bundan eski haberler atlanir
 MAX_TITLE = 95
@@ -35,14 +35,14 @@ def save_state(state):
 
 
 def tokens(title):
-    return {w for w in re.findall(r"\w+", tr_lower(title)) if len(w) > 2}
+    return {w[:4] for w in re.findall(r"\w+", tr_lower(title)) if len(w) > 2}
 
 
 def similar(a, b):
     ta, tb = tokens(a), tokens(b)
     if not ta or not tb:
         return False
-    return len(ta & tb) / len(ta | tb) >= 0.6
+    return len(ta & tb) / len(ta | tb) >= 0.5
 
 
 def short_title(t):
@@ -130,7 +130,7 @@ def main():
     OUT.mkdir(exist_ok=True)
     sent = 0
     for i, it in enumerate(to_send):
-        title = short_title(it["title"])
+        title = short_title(clean_title(it["title"]))
         path = OUT / f"haber_{int(it['ts'])}_{i}.png"
         make(it["cat"], it["level"], title, it["source"], path, claim=it["claim"])
         flag = " · İDDİA" if it["claim"] else ""
