@@ -12,7 +12,7 @@ RULES = [
     ("Disiplin ve Ceza", r"pfdk|disipline sevk|\bceza|kırmızı kart|sarı kart|hak mahrumiyeti"),
     ("Sakatlık", r"sakatl|\bsakat\b|ameliyat|tedavi|kas yırtığı|sezonu kapattı|dönüş tarihi|forma giyemeyecek"),
     ("Özel Gün", r"doğum günü|yıl dönümü|anıyoruz|rahmetle|vefat|hatırlıyoruz"),
-    ("Transfer", r"transfer|bonservis|imzay|imza at|kiralık|teklif|ilgileniyor|sözleşme|anlaşma sağla|anlaştı|takip ediyor"),
+    ("Transfer", r"transfer|bonservis|imzay|imza at|kiralık|teklif|ilgileniyor|sözleşme|anlaşma sağla|anlaştı|takip ediyor|peşinde|gözüne kestirdi|renklerine"),
     ("Avrupa", r"uefa|şampiyonlar ligi|avrupa ligi|konferans ligi|\bkura\b"),
     ("Maç Öncesi", r"hakem|ilk 11|muhtemel 11|maç kadrosu|saat kaçta|hangi kanalda|şifresiz|maç öncesi"),
     ("Puan Durumu", r"puan durumu|puan farkı|liderlik|şampiyonluk yarışı|averaj"),
@@ -26,8 +26,8 @@ RULES = [
 
 OFFICIAL = re.compile(r"resmen|resmi olarak|imzayı attı|imzaladı|kap'a|kap’a|duyurdu|açıkladı|açıklandı")
 CLAIM = re.compile(
-    r"iddia|kulis|ilgileniyor|takip ediyor|gündemde|gelebilir|sürpriz|\?|görüşme|istiyor|peşinde|masada|hedefte|yakın|"
-    r"gelecek mi|ayrılacak mı|olabilir|bekleniyor|haberleri"
+    r"iddia(?!lı)|kulis|ilgileniyor|takip ediyor|gündemde|gelebilir|\?|görüşme|istiyor|peşinde|masada|hedefte|"
+    r"gelecek mi|ayrılacak mı|olabilir|bekleniyor"
 )
 BREAKING = re.compile(r"son dakika|resmen|ilk 11|kırmızı kart|imzayı attı|ameliyat edildi|ayrıldı")
 
@@ -74,18 +74,6 @@ FEEDS = [
     dict(name="A Spor", url="https://www.aspor.com.tr/rss/galatasaray.xml", official=False, filter=False, hint=None),
     dict(name="Fotomaç", url="https://www.fotomac.com.tr/rss/Galatasaray.xml", official=False, filter=False, hint=None),
     dict(name="Ajansspor", url="https://ajansspor.com/rss", official=False, filter=True, hint=None),
-    # Google Haberler: her arama bir kategoriye denk gelir
-    dict(name="Google Haberler: son dakika", url=gn("Galatasaray son dakika"), official=False, filter=False, hint=None),
-    dict(name="Google Haberler: hakem", url=gn("Galatasaray maçının hakemi"), official=False, filter=False, hint="Maç Öncesi"),
-    dict(name="Google Haberler: ilk 11", url=gn("Galatasaray ilk 11 maç kadrosu"), official=False, filter=False, hint="Maç Öncesi"),
-    dict(name="Google Haberler: transfer", url=gn("Galatasaray transfer"), official=False, filter=False, hint="Transfer"),
-    dict(name="Google Haberler: sakatlık", url=gn("Galatasaray sakatlık ceza oyuncu"), official=False, filter=False, hint="Sakatlık"),
-    dict(name="Google Haberler: yönetim", url=gn("Galatasaray yönetim resmi açıklama"), official=False, filter=False, hint="Kulüp ve Yönetim"),
-    dict(name="Google Haberler: antrenman", url=gn("Galatasaray antrenman hazırlıkları"), official=False, filter=False, hint="Antrenman"),
-    dict(name="Google Haberler: taraftar", url=gn("Galatasaray bilet taraftar stadyum"), official=False, filter=False, hint="Taraftar ve Stadyum"),
-    dict(name="Google Haberler: açıklama", url=gn("Galatasaray Okan Buruk açıklama"), official=False, filter=False, hint="Açıklamalar"),
-    dict(name="Google Haberler: puan durumu", url=gn("Galatasaray puan durumu"), official=False, filter=False, hint="Puan Durumu"),
-    dict(name="Google Haberler: Avrupa", url=gn("Galatasaray UEFA Avrupa"), official=False, filter=False, hint="Avrupa"),
 ]
 
 
@@ -95,6 +83,8 @@ PREFIX = re.compile(r"^\s*(son dakika( spor haberi)?|flaş|flas|özel haber)\s*[
 def clean_title(t):
     """Basligin basindaki 'SON DAKIKA |' gibi tekrar eden onekleri at."""
     t = re.sub(r"\s+", " ", t).strip()
+    t = re.sub(r"\s+[-–|]\s+[^-–|]{0,40}(haberleri|haber|spor)\s*$", "", t, flags=re.IGNORECASE)
+    t = re.sub(r"\s+[-–|]\s+galatasaray\s*$", "", t, flags=re.IGNORECASE)
     for _ in range(2):
         t2 = PREFIX.sub("", tr_lower(t))
         if len(t2) < len(tr_lower(t)):

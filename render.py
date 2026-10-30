@@ -1,43 +1,42 @@
-"""Vel Spor kare gorsel uretici (1080x1080)."""
-from pathlib import Path
+"""Vel Spor gorsel uretici: bordo-altin, Galatasaray haber dili (1080x1080)."""
 import random
+from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parent
 LOGO_PATH = ROOT / "logo.png"
-
 S = 1080
-CREAM = (245, 239, 220)
-RED = (165, 0, 33)
-DARK = (110, 0, 20)
-INK = (30, 24, 22)
-GOLD = (200, 150, 45)
+SQ = 0.80  # yazi daraltma orani (dar ve kalin gorunum)
 
 PAL = {
-    "RED":  dict(strong=RED, on=CREAM, accent=DARK, dbg=(92, 0, 20), dwm=(125, 0, 28)),
-    "INK":  dict(strong=(32, 26, 26), on=CREAM, accent=RED, dbg=(22, 17, 17), dwm=(62, 12, 22)),
-    "GOLD": dict(strong=GOLD, on=INK, accent=RED, dbg=(40, 30, 14), dwm=(80, 58, 20)),
+    "BURG": dict(dark=(48, 0, 12), light=(128, 10, 32), text=(250, 208, 140),
+                 line=(196, 30, 54), small=(238, 200, 150), on=(48, 0, 12)),
+    "BLACK": dict(dark=(12, 8, 9), light=(54, 14, 24), text=(250, 208, 140),
+                  line=(165, 0, 33), small=(230, 196, 150), on=(12, 8, 9)),
+    "NAVY": dict(dark=(6, 12, 52), light=(22, 56, 156), text=(255, 255, 255),
+                 line=(60, 200, 240), small=(200, 218, 255), on=(6, 12, 52)),
 }
+GOLD = (250, 208, 140)
 
 LEVELS = {"A": "SON DAKİKA", "B": "GÜNDEM", "C": "ARŞİV"}
 
 # kategori -> (duzen, palet)
 CATS = {
-    "Maç Öncesi":          ("split",   "RED"),
-    "Maç İçi":             ("dark",    "INK"),
-    "Transfer":            ("diag",    "RED"),
-    "Oyuncu Performansı":  ("bar",     "INK"),
-    "Disiplin ve Ceza":    ("frame",   "GOLD"),
-    "Sakatlık":            ("bar",     "RED"),
-    "Kulüp ve Yönetim":    ("frame",   "INK"),
-    "Özel Gün":            ("diag",    "GOLD"),
-    "Puan Durumu":         ("split",   "INK"),
-    "Antrenman":           ("stripes", "RED"),
-    "Taraftar ve Stadyum": ("dark",    "RED"),
-    "Açıklamalar":         ("stripes", "INK"),
-    "Avrupa":              ("split",   "GOLD"),
-    "Gündem":              ("diag",    "INK"),
+    "Maç Öncesi":          ("center", "BURG"),
+    "Maç İçi":             ("chevron", "BLACK"),
+    "Transfer":            ("big", "BURG"),
+    "Oyuncu Performansı":  ("chevron", "BURG"),
+    "Disiplin ve Ceza":    ("frame", "BLACK"),
+    "Sakatlık":            ("bar", "BURG"),
+    "Kulüp ve Yönetim":    ("frame", "BURG"),
+    "Özel Gün":            ("center", "BLACK"),
+    "Puan Durumu":         ("bar", "BLACK"),
+    "Antrenman":           ("split", "BLACK"),
+    "Taraftar ve Stadyum": ("split", "BURG"),
+    "Açıklamalar":         ("big", "BLACK"),
+    "Avrupa":              ("center", "NAVY"),
+    "Gündem":              ("split", "BURG"),
 }
 
 
@@ -46,8 +45,9 @@ def tr_upper(s):
 
 
 def font(size, bold=True):
-    name = "DejaVuSans-Bold.ttf" if bold else "DejaVuSans.ttf"
-    for p in (ROOT / name, Path("/usr/share/fonts/truetype/dejavu") / name):
+    name = "LiberationSans-Bold.ttf" if bold else "LiberationSans-Regular.ttf"
+    for p in (ROOT / name, Path("/usr/share/fonts/truetype/liberation") / name,
+              Path("/usr/share/fonts/truetype/dejavu") / name.replace("Liberation", "DejaVu")):
         try:
             return ImageFont.truetype(str(p), size)
         except OSError:
@@ -55,42 +55,51 @@ def font(size, bold=True):
     return ImageFont.load_default()
 
 
-def _load_logo_mask():
-    im = Image.open(LOGO_PATH).convert("RGB")
-    px = im.load()
-    w, h = im.size
-    mask = Image.new("L", (w, h), 0)
-    mp = mask.load()
-    for y in range(h):
-        for x in range(w):
-            r, g, b = px[x, y]
-            mp[x, y] = max(0, min(255, int((r - g - 40) * 2.2)))
-    return mask.crop(mask.getbbox())
+def tw(text, size, sq=SQ):
+    return font(size).getlength(text) * sq
 
 
-_LOGO_MASK = None
+def text_layer(text, size, fill, sq=SQ):
+    f = font(size)
+    w = int(f.getlength(text)) + 8
+    h = int(size * 1.4)
+    layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    ImageDraw.Draw(layer).text((2, 0), text, font=f, fill=tuple(fill) + (255,))
+    return layer.resize((max(1, int(w * sq)), h), Image.LANCZOS)
 
 
-def logo_mask():
-    global _LOGO_MASK
-    if _LOGO_MASK is None:
-        _LOGO_MASK = _load_logo_mask()
-    return _LOGO_MASK
+def draw_text(img, x, y, text, size, fill, sq=SQ, anchor="l"):
+    """Dar (yatay sikistirilmis) kalin yazi. anchor: l / m / r"""
+    layer = text_layer(text, size, fill, sq)
+    nw = layer.width
+    if anchor == "m":
+        x = x - nw // 2
+    elif anchor == "r":
+        x = x - nw
+    img.paste(layer, (int(x), int(y)), layer)
+    return nw
 
 
-def paste_logo(img, height, pos, color):
-    lm = logo_mask()
-    ratio = height / lm.height
-    m = lm.resize((max(1, int(lm.width * ratio)), height), Image.LANCZOS)
-    img.paste(Image.new("RGB", m.size, color), pos, m)
-    return m.size
+def spaced(img, x, y, text, size, fill, gap=6, anchor="l", bold=True):
+    """Harf aralikli kucuk etiket yazisi."""
+    f = font(size, bold)
+    total = sum(f.getlength(c) + gap for c in text) - gap
+    if anchor == "m":
+        x = x - total / 2
+    elif anchor == "r":
+        x = x - total
+    d = ImageDraw.Draw(img)
+    for c in text:
+        d.text((x, y), c, font=f, fill=fill)
+        x += f.getlength(c) + gap
+    return total
 
 
-def wrap(d, text, f, maxw):
+def wrap(text, size, maxw):
     lines, cur = [], ""
     for word in text.split():
         t = (cur + " " + word).strip()
-        if d.textlength(t, font=f) <= maxw:
+        if tw(t, size) <= maxw:
             cur = t
         else:
             if cur:
@@ -101,162 +110,237 @@ def wrap(d, text, f, maxw):
     return lines
 
 
-def headline(d, text, x, y, maxw, maxh, color, start=92, minsize=40):
+def fit(text, maxw, maxh, start, minsize=34, lh=1.02):
     size = start
     while size >= minsize:
-        f = font(size)
-        lines = wrap(d, text, f, maxw)
-        lh = int(size * 1.18)
-        if len(lines) * lh <= maxh and all(d.textlength(l, font=f) <= maxw for l in lines):
-            break
+        lines = wrap(text, size, maxw)
+        if len(lines) * int(size * lh) <= maxh and all(tw(l, size) <= maxw for l in lines):
+            return size, lines
         size -= 2
-    f = font(size)
-    lines = wrap(d, text, f, maxw)
-    lh = int(size * 1.18)
-    max_lines = max(1, maxh // lh)
-    if len(lines) > max_lines:  # cok uzunsa son satiri kisalt
-        lines = lines[:max_lines]
-        last = lines[-1]
-        while last and d.textlength(last + "…", font=f) > maxw:
-            last = last[:-1]
-        lines[-1] = last.rstrip() + "…"
+    lines = wrap(text, minsize, maxw)
+    n = max(1, maxh // int(minsize * lh))
+    lines = lines[:n]
+    while lines and tw(lines[-1] + "…", minsize) > maxw:
+        lines[-1] = lines[-1][:-1]
+    if lines:
+        lines[-1] = lines[-1].rstrip() + "…"
+    return minsize, lines
+
+
+def headline(img, text, x, y, maxw, maxh, color, start=110, align="l", lh=1.02):
+    text = tr_upper(text)
+    size, lines = fit(text, maxw, maxh, start, lh=lh)
+    step = int(size * lh)
+    top = y + max(0, (maxh - step * len(lines)) // 2)
     for i, l in enumerate(lines):
-        d.text((x, y + i * lh), l, font=f, fill=color)
+        if align == "m":
+            draw_text(img, x + maxw // 2, top + i * step, l, size, color, anchor="m")
+        else:
+            draw_text(img, x, top + i * step, l, size, color)
+    return size
 
 
-def tag(d, x, y, text, fill, fg, size=36):
-    f = font(size)
-    tw = d.textlength(text, font=f)
-    d.rectangle([x, y, x + tw + 48, y + size + 28], fill=fill)
-    d.text((x + 24, y + 11), text, font=f, fill=fg)
+def _logo_mask():
+    im = Image.open(LOGO_PATH).convert("RGB")
+    px = im.load()
+    w, h = im.size
+    mask = Image.new("L", (w, h), 0)
+    mp = mask.load()
+    for yy in range(h):
+        for xx in range(w):
+            r, g, b = px[xx, yy]
+            mp[xx, yy] = max(0, min(255, int((r - g - 40) * 2.2)))
+    return mask.crop(mask.getbbox())
 
 
-def texture(img):
+_LM = None
+
+
+def paste_logo(img, height, pos, color, alpha=255):
+    global _LM
+    if _LM is None:
+        _LM = _logo_mask()
+    ratio = height / _LM.height
+    m = _LM.resize((max(1, int(_LM.width * ratio)), height), Image.LANCZOS)
+    if alpha < 255:
+        m = m.point(lambda v: v * alpha // 255)
+    img.paste(Image.new("RGB", m.size, color), pos, m)
+    return m.size
+
+
+def background(p):
+    mask = Image.radial_gradient("L").resize((S, S))
+    # radial_gradient: merkez siyah, kenar beyaz -> merkez acik olsun diye ters cevir
+    mask = mask.point(lambda v: 255 - v)
+    img = Image.composite(Image.new("RGB", (S, S), p["light"]), Image.new("RGB", (S, S), p["dark"]), mask)
     px = img.load()
-    rnd = random.Random(7)
-    for _ in range(90000):
+    rnd = random.Random(11)
+    for _ in range(110000):
         x, y = rnd.randrange(S), rnd.randrange(S)
-        dd = rnd.randint(-7, 3)
+        dd = rnd.randint(-9, 6)
         r, g, b = px[x, y]
-        px[x, y] = (r + dd, g + dd, b + dd)
+        px[x, y] = (max(0, min(255, r + dd)), max(0, min(255, g + dd)), max(0, min(255, b + dd)))
+    return img
 
 
-def brand_row(img, x, y, h, logo_color, text_color, source, src_color):
-    sz = paste_logo(img, h, (x, y), logo_color)
+def overlay_lines(img, p, cx=540, cy=540, step=120, count=8, alpha=70):
+    ov = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    d = ImageDraw.Draw(ov)
+    for i in range(1, count + 1):
+        r = i * step
+        d.ellipse([cx - r, cy - r, cx + r, cy + r], outline=p["line"] + (alpha,), width=2)
+    img.paste(Image.alpha_composite(img.convert("RGBA"), ov).convert("RGB"))
+
+
+def chevrons(d, x, y, w, up, color, n=3, gap=26, width=9):
+    for i in range(n):
+        yy = y + i * gap * (1 if up else -1)
+        if up:
+            d.line([(x, yy + w // 2), (x + w // 2, yy), (x + w, yy + w // 2)], fill=color, width=width, joint="curve")
+        else:
+            d.line([(x, yy - w // 2), (x + w // 2, yy), (x + w, yy - w // 2)], fill=color, width=width, joint="curve")
+
+
+def footer(img, p, src, y=950, h=84, center=False, color=None):
+    color = color or p["text"]
     d = ImageDraw.Draw(img)
-    d.text((x + sz[0] + 26, y + h // 2 - 20), "V E L   S P O R", font=font(28), fill=text_color)
-    if source:
+    d.line([(70, y - 22), (S - 70, y - 22)], fill=p["line"], width=2)
+    sz = paste_logo(img, h, (70, y), color)
+    d = ImageDraw.Draw(img)
+    spaced(img, 70 + sz[0] + 24, y + h // 2 - 16, "VEL SPOR", 26, color, gap=8)
+    if src:
+        t = "Kaynak: " + src
         f = font(24, False)
-        t = "Kaynak: " + source
-        if d.textlength(t, font=f) > 420:
-            while d.textlength(t + "…", font=f) > 420 and len(t) > 10:
-                t = t[:-1]
-            t += "…"
-        d.text((S - 70 - d.textlength(t, font=f), y + h // 2 - 14), t, font=f, fill=src_color)
+        while f.getlength(t) > 420 and len(t) > 12:
+            t = t[:-2] + "…"
+        d.text((S - 70 - f.getlength(t), y + h // 2 - 14), t, font=f, fill=p["small"])
 
 
-def _short_source(src, n=40):
-    return src if len(src) <= n else src[: n - 1] + "…"
+def top_label(img, p, cat, lvl, y=62, x0=70):
+    spaced(img, x0, y, "GALATASARAY", 24, p["small"], gap=7)
+    spaced(img, S - 70, y, LEVELS[lvl], 24, p["small"], gap=7, anchor="r")
+    d = ImageDraw.Draw(img)
+    d.line([(x0, y + 40), (S - 70, y + 40)], fill=p["line"], width=2)
 
 
 # ---------------- duzenler ----------------
 
-def l_diag(img, cat, lvl, text, src, p):
+def l_center(img, cat, lvl, text, src, p):
+    overlay_lines(img, p)
+    top_label(img, p, cat, lvl)
+    big = tr_upper(cat).split(" ")
+    if len(big) > 2:
+        big = [" ".join(big[:-1]), big[-1]]
+    size = 190
+    while max(tw(b, size) for b in big) > 900 and size > 60:
+        size -= 6
+    y = 190
+    for i, b in enumerate(big):
+        draw_text(img, S // 2, y + i * int(size * 1.0), b, size, p["text"], anchor="m")
+    y += len(big) * int(size * 1.0) + 24
+    ImageDraw.Draw(img).line([(S // 2 - 60, y), (S // 2 + 60, y)], fill=p["text"], width=4)
+    headline(img, text, 90, y + 30, 900, 940 - y - 40, p["small"], start=62, align="m")
+    footer(img, p, src)
+
+
+def l_chevron(img, cat, lvl, text, src, p):
+    overlay_lines(img, p, cx=900, cy=300, step=140, count=7)
     d = ImageDraw.Draw(img)
-    tag(d, 70, 70, tr_upper(cat), p["strong"], p["on"])
-    d.text((70, 170), LEVELS[lvl], font=font(30), fill=RED)
-    headline(d, text, 70, 250, 940, 380, INK)
-    d.polygon([(0, 790), (S, 640), (S, 660), (0, 810)], fill=p["accent"])
-    d.polygon([(0, 810), (S, 660), (S, S), (0, S)], fill=p["strong"])
-    brand_row(img, 70, 900, 110, p["on"], p["on"], src, p["on"])
+    top_label(img, p, cat, lvl)
+    chevrons(d, 90, 160, 120, True, p["text"])
+    chevrons(d, S - 210, 880, 120, False, p["text"])
+    spaced(img, S // 2, 160, tr_upper(cat), 30, p["text"], gap=9, anchor="m")
+    headline(img, text, 90, 250, 900, 580, p["text"], start=124, align="m")
+    footer(img, p, src, y=960, h=70)
+
+
+def l_big(img, cat, lvl, text, src, p):
+    overlay_lines(img, p, cx=200, cy=900, step=130, count=9)
+    top_label(img, p, cat, lvl)
+    d = ImageDraw.Draw(img)
+    t = tr_upper(cat)
+    w = int(tw(t, 38) + 60)
+    d.rectangle([70, 150, 70 + w, 150 + 62], fill=p["text"])
+    draw_text(img, 100, 158, t, 38, p["on"])
+    headline(img, text, 70, 250, 940, 600, p["text"], start=132)
+    d.polygon([(0, 905), (S, 835), (S, 850), (0, 920)], fill=p["line"])
+    footer(img, p, src, y=950, h=84)
 
 
 def l_split(img, cat, lvl, text, src, p):
     d = ImageDraw.Draw(img)
-    d.polygon([(0, 0), (S, 0), (S, 330), (0, 420)], fill=p["strong"])
-    d.polygon([(0, 420), (S, 330), (S, 350), (0, 440)], fill=p["accent"])
-    d.text((70, 70), LEVELS[lvl], font=font(30), fill=p["on"])
-    big = tr_upper(cat)
-    size = 130
-    while d.textlength(big, font=font(size)) > 940 and size > 50:
-        size -= 4
-    d.text((70, 140), big, font=font(size), fill=p["on"])
-    headline(d, text, 70, 500, 940, 380, INK)
-    d.line([(70, 930), (500, 930)], fill=RED, width=3)
-    brand_row(img, 70, 950, 90, RED, INK, src, INK)
-
-
-def l_dark(img, cat, lvl, text, src, p):
-    img.paste(Image.new("RGB", (S, S), p["dbg"]))
-    paste_logo(img, 760, (440, 330), p["dwm"])
-    d = ImageDraw.Draw(img)
-    tag(d, 70, 70, tr_upper(cat), CREAM, INK)
-    d.ellipse([70, 170, 94, 194], fill=GOLD)
-    d.text((110, 166), LEVELS[lvl], font=font(30), fill=GOLD)
-    headline(d, text, 70, 270, 900, 520, CREAM)
-    d.line([(70, 930), (500, 930)], fill=GOLD, width=3)
-    brand_row(img, 70, 950, 90, CREAM, CREAM, src, (210, 200, 180))
+    # sag panel
+    d.polygon([(700, 0), (S, 0), (S, S), (560, S)], fill=p["dark"])
+    d.polygon([(690, 0), (706, 0), (566, S), (550, S)], fill=p["line"])
+    paste_logo(img, 520, (690, 300), p["light"], alpha=170)
+    top_label(img, p, cat, lvl)
+    t = tr_upper(cat)
+    w = int(tw(t, 38) + 60)
+    d.rectangle([70, 150, 70 + w, 150 + 62], fill=p["text"])
+    draw_text(img, 100, 158, t, 38, p["on"])
+    headline(img, text, 70, 250, 500, 600, p["text"], start=112)
+    footer(img, p, src, y=950, h=84)
 
 
 def l_bar(img, cat, lvl, text, src, p):
     d = ImageDraw.Draw(img)
-    d.rectangle([0, 0, 200, S], fill=p["strong"])
-    d.rectangle([200, 0, 214, S], fill=p["accent"])
-    paste_logo(img, 150, (28, 70), p["on"])
+    overlay_lines(img, p, cx=900, cy=900, step=130, count=9)
+    d.rectangle([0, 0, 190, S], fill=p["dark"])
+    d.rectangle([190, 0, 200, S], fill=p["text"])
+    paste_logo(img, 130, (30, 60), p["text"])
+    # dikey kategori yazisi
+    t = tr_upper(cat)
+    size = 70
+    while tw(t, size) > 700 and size > 30:
+        size -= 4
+    rot = text_layer(t, size, p["text"]).rotate(90, expand=True)
+    img.paste(rot, (60, S - 120 - rot.height), rot)
+    top_label(img, p, cat, lvl, x0=250)
+    headline(img, text, 250, 160, 760, 700, p["text"], start=120)
     d = ImageDraw.Draw(img)
-    for i, w in enumerate(["VEL", "SPOR"]):
-        d.text((100 - d.textlength(w, font=font(30)) / 2, 960 + i * 40 - 30), w, font=font(30), fill=p["on"])
-    tag(d, 270, 90, tr_upper(cat), p["strong"], p["on"], size=34)
-    d.text((270, 190), LEVELS[lvl], font=font(30), fill=RED)
-    headline(d, text, 270, 280, 740, 600, INK, start=84)
-    d.line([(270, 960), (700, 960)], fill=RED, width=3)
-    d.text((270, 985), "Kaynak: " + _short_source(src), font=font(24, False), fill=INK)
+    d.line([(250, 960), (S - 70, 960)], fill=p["line"], width=2)
+    spaced(img, 250, 985, "VEL SPOR", 24, p["text"], gap=8)
+    f = font(24, False)
+    tt = "Kaynak: " + src
+    while f.getlength(tt) > 420 and len(tt) > 12:
+        tt = tt[:-2] + "…"
+    d.text((S - 70 - f.getlength(tt), 985), tt, font=f, fill=p["small"])
 
 
 def l_frame(img, cat, lvl, text, src, p):
-    img.paste(Image.new("RGB", (S, S), p["strong"]))
+    overlay_lines(img, p)
     d = ImageDraw.Draw(img)
-    d.rectangle([60, 60, S - 60, 860], fill=CREAM)
-    d.rectangle([76, 76, S - 76, 844], outline=p["accent"], width=3)
-    tag(d, 110, 30, tr_upper(cat), p["accent"], CREAM, size=34)
-    d.text((120, 130), LEVELS[lvl], font=font(30), fill=RED)
-    headline(d, text, 120, 200, 840, 540, INK, start=84)
-    d.text((120, 790), "Kaynak: " + _short_source(src), font=font(24, False), fill=INK)
-    brand_row(img, 70, 905, 110, p["on"], p["on"], None, None)
+    d.rectangle([44, 44, S - 44, S - 44], outline=p["text"], width=3)
+    d.rectangle([58, 58, S - 58, S - 58], outline=p["line"], width=2)
+    t = tr_upper(cat)
+    f = 34
+    w = tw(t, f) + 80
+    x0 = S // 2 - w / 2
+    d.rectangle([x0, 30, x0 + w, 100], fill=p["dark"], outline=p["text"], width=3)
+    draw_text(img, S // 2, 44, t, f + 6, p["text"], anchor="m")
+    spaced(img, S // 2, 128, "GALATASARAY · " + LEVELS[lvl], 24, p["small"], gap=7, anchor="m")
+    headline(img, text, 110, 190, 860, 650, p["text"], start=122, align="m")
+    footer(img, p, src, y=905, h=84)
 
 
-def l_stripes(img, cat, lvl, text, src, p):
-    d = ImageDraw.Draw(img)
-    d.polygon([(S, 560), (S, S), (560, S)], fill=p["strong"])
-    d.polygon([(S, 470), (S, 520), (470, S), (520, S)], fill=p["accent"])
-    d.polygon([(S, 400), (S, 425), (400, S), (425, S)], fill=p["strong"])
-    brand_row(img, 70, 70, 110, RED, INK, None, None)
-    tag(d, 70, 240, tr_upper(cat), p["strong"], p["on"], size=34)
-    d.text((70, 340), LEVELS[lvl], font=font(30), fill=RED)
-    headline(d, text, 70, 410, 760, 340, INK, start=84)
-    d.text((70, 990), "Kaynak: " + _short_source(src), font=font(24, False), fill=INK)
-
-
-LAYOUTS = dict(diag=l_diag, split=l_split, dark=l_dark, bar=l_bar, frame=l_frame, stripes=l_stripes)
+LAYOUTS = dict(center=l_center, chevron=l_chevron, big=l_big, split=l_split, bar=l_bar, frame=l_frame)
 
 
 def claim_badge(img):
     d = ImageDraw.Draw(img)
-    f = font(30)
-    t = "İDDİA"
-    w = d.textlength(t, font=f) + 40
-    x = S - 70 - w
-    d.rectangle([x, 100, x + w, 100 + 58], fill=GOLD)
-    d.text((x + 20, 111), t, font=f, fill=INK)
+    w, h = 170, 54
+    x, y = S - 70 - w, 118
+    d.rectangle([x, y, x + w, y + h], fill=GOLD)
+    spaced(img, x + w // 2, y + 12, "İDDİA", 28, (40, 6, 14), gap=6, anchor="m")
 
 
 def make(cat, lvl, text, src, out, claim=False):
     if cat not in CATS:
         cat = "Gündem"
     layout, pal = CATS[cat]
-    img = Image.new("RGB", (S, S), CREAM)
-    texture(img)
-    LAYOUTS[layout](img, cat, lvl, text, src, PAL[pal])
+    p = PAL[pal]
+    img = background(p)
+    LAYOUTS[layout](img, cat, lvl, text, src, p)
     if claim:
         claim_badge(img)
     img.save(out)
