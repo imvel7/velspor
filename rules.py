@@ -156,3 +156,26 @@ def short_for(title):
         if re.search(pattern, t):
             return label
     return None
+
+
+# kisa el yazisi notlari (iddia olmayan haberlerde)
+NOTES = {
+    "MAÇIN HAKEMİ": "belli oldu", "HAKEM TARTIŞMASI": "tartışma var",
+    "MAÇ SAATİ": "not al", "İLK 11": "işte kadro", "MUHTEMEL 11": "muhtemel",
+    "MAÇ KADROSU": "kadro belli", "KAMP KADROSU": "kampa gidenler",
+    "PFDK KARARI": "karar çıktı", "KIRMIZI KART": "ceza var", "SARI KART": "dikkat",
+    "CEZA KARARI": "karar çıktı", "HAK MAHRUMİYETİ": "ceza var",
+    "MAÇ SONUCU": "maç bitti", "İLK YARI SONUCU": "devre arası",
+    "GOL": "gooool", "SAKATLIK": "geçmiş olsun", "AMELİYAT": "geçmiş olsun",
+    "SAHAYA DÖNÜŞ": "geri dönüyor", "TRANSFER TAMAMLANDI": "hayırlı olsun",
+    "ANLAŞMA SAĞLANDI": "büyük adım", "RESMİ TEKLİF": "büyük hamle",
+    "KİRALIK": "yeni adres", "AYRILIK": "teşekkürler", "BİLETLER SATIŞTA": "kaçırma",
+    "DOĞUM GÜNÜ": "iyi ki doğdun", "ANMA": "unutmadık", "İDMAN": "çalışma sürüyor",
+    "BASIN TOPLANTISI": "canlı", "RESMİ AÇIKLAMA": "kulüpten", "KURA ÇEKİMİ": "rakip belli",
+    "PUAN DURUMU": "durum bu", "MAÇIN ADAMI": "tebrikler", "REKOR": "tarih yazıldı",
+    "OKAN BURUK AÇIKLADI": "hoca konuştu",
+}
+
+
+def note_for(short):
+    return NOTES.get(short)

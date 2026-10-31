@@ -9,7 +9,7 @@ from pathlib import Path
 
 from net import rss_fetch, tg_configured, tg_send_message, tg_send_photo
 from render import CATS, LEVELS, make
-from rules import FEEDS, classify, clean_title, is_claim, level_for, tr_lower
+from rules import FEEDS, classify, clean_title, is_claim, level_for, note_for, short_for, tr_lower
 
 
 ROOT = Path(__file__).resolve().parent
@@ -20,6 +20,7 @@ MAX_PER_RUN = 4      # tek calismada en fazla kac gorsel
 MAX_FIRST_RUN = 3    # ilk calismada kac gorsel (geri kalani sessizce 'goruldu' isaretlenir)
 MAX_AGE_HOURS = 12   # bundan eski haberler atlanir
 MAX_TITLE = 95
+SEND_UNMATCHED = False  # kisa basligi bulunamayan haberler gonderilmesin
 
 
 def load_state():
@@ -116,6 +117,10 @@ def main():
             dropped_ids.append(it["id"])
             continue
         known.append(it["title"])
+        it["short"] = short_for(it["title"])
+        if not it["short"] and not SEND_UNMATCHED:
+            dropped_ids.append(it["id"])
+            continue
         it["cat"] = classify(it["title"], it["hint"])
         it["claim"] = is_claim(it["title"], it["cat"], it["official"])
         it["level"] = level_for(it["title"], it["cat"], it["claim"])
@@ -132,7 +137,7 @@ def main():
     for i, it in enumerate(to_send):
         title = short_title(clean_title(it["title"]))
         path = OUT / f"haber_{int(it['ts'])}_{i}.png"
-        make(it["cat"], it["level"], title, it["source"], path, claim=it["claim"])
+        make(it["cat"], it["level"], it["short"] or it["cat"], it["source"], path, claim=it["claim"], note=note_for(it["short"]))
         flag = " · İDDİA" if it["claim"] else ""
         caption = (
             f"{it['cat']} · {LEVELS[it['level']].title()}{flag}\n\n"
@@ -181,6 +186,7 @@ def manual_main():
     text = os.environ.get("HEADLINE", "").strip()
     source = os.environ.get("SOURCE", "Vel Spor").strip() or "Vel Spor"
     claim = os.environ.get("CLAIM", "false").lower() == "true"
+    note = os.environ.get("NOTE", "").strip() or note_for(text.upper())
     if not text:
         print("Baslik bos")
         return 1
@@ -190,7 +196,7 @@ def manual_main():
         level = "B"
     OUT.mkdir(exist_ok=True)
     path = OUT / "manuel.png"
-    make(cat, level, text, source, path, claim=claim)
+    make(cat, level, text, source, path, claim=claim, note=note)
     caption = f"{cat} · {LEVELS[level].title()}{' · İDDİA' if claim else ''}\n\n{text}\n\nKaynak: {source}"
     if tg_configured():
         tg_send_photo(path, caption)

@@ -7,7 +7,7 @@ from PIL import Image, ImageDraw, ImageFont
 ROOT = Path(__file__).resolve().parent
 LOGO_PATH = ROOT / "logo.png"
 S = 1080
-SQ = 0.80  # yazi daraltma orani (dar ve kalin gorunum)
+SQ = 1.0  # Big Shoulders zaten dar; sikistirma yok
 
 PAL = {
     "BURG": dict(dark=(48, 0, 12), light=(128, 10, 32), text=(250, 208, 140),
@@ -46,13 +46,18 @@ def tr_upper(s):
 
 
 def font(size, bold=True):
-    name = "LiberationSans-Bold.ttf" if bold else "LiberationSans-Regular.ttf"
-    for p in (ROOT / name, Path("/usr/share/fonts/truetype/liberation") / name,
-              Path("/usr/share/fonts/truetype/dejavu") / name.replace("Liberation", "DejaVu")):
+    name = "BigShoulders-Bold.ttf" if bold else "BigShoulders-Regular.ttf"
+    for p in (ROOT / name, Path("/usr/share/fonts/truetype") / name):
         try:
             return ImageFont.truetype(str(p), size)
         except OSError:
             continue
+    for alt in ("LiberationSans-Bold.ttf" if bold else "LiberationSans-Regular.ttf",):
+        for p in (ROOT / alt, Path("/usr/share/fonts/truetype/liberation") / alt):
+            try:
+                return ImageFont.truetype(str(p), size)
+            except OSError:
+                continue
     return ImageFont.load_default()
 
 
@@ -83,6 +88,7 @@ def draw_text(img, x, y, text, size, fill, sq=SQ, anchor="l"):
 
 def spaced(img, x, y, text, size, fill, gap=6, anchor="l", bold=True):
     """Harf aralikli kucuk etiket yazisi."""
+    size = int(size * 1.3)
     f = font(size, bold)
     total = sum(f.getlength(c) + gap for c in text) - gap
     if anchor == "m":
@@ -211,7 +217,7 @@ def footer(img, p, src, y=950, h=84, center=False, color=None):
     spaced(img, 70 + sz[0] + 24, y + h // 2 - 16, "VEL SPOR", 26, color, gap=8)
     if src:
         t = "Kaynak: " + src
-        f = font(24, False)
+        f = font(30, False)
         while f.getlength(t) > 420 and len(t) > 12:
             t = t[:-2] + "…"
         d.text((S - 70 - f.getlength(t), y + h // 2 - 14), t, font=f, fill=p["small"])
@@ -224,34 +230,111 @@ def top_label(img, p, cat, lvl, y=62, x0=70):
     d.line([(x0, y + 40), (S - 70, y + 40)], fill=p["line"], width=2)
 
 
+
+# ---------------- el yazisi ----------------
+import math
+
+HAND_PATH = "NothingYouCouldDo-Regular.ttf"
+
+
+def hfont(size):
+    for p in (ROOT / HAND_PATH, Path("/usr/share/fonts/truetype") / HAND_PATH):
+        try:
+            return ImageFont.truetype(str(p), size)
+        except OSError:
+            continue
+    return font(size, False)
+
+
+def _hand_raw(text, size, color):
+    """Elyazisi katmani. Fontta noktasiz i yok: i cizip noktasini sileriz."""
+    f = hfont(size)
+    w = int(f.getlength(text)) + 40
+    h = int(size * 1.9)
+    lay = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    d = ImageDraw.Draw(lay)
+    for k, ch in enumerate(text):
+        x = 20 + f.getlength(text[:k])
+        if ch != "ı":
+            d.text((x, int(size * 0.3)), ch, font=f, fill=tuple(color) + (255,))
+            continue
+        g = Image.new("RGBA", lay.size, (0, 0, 0, 0))
+        ImageDraw.Draw(g).text((x, int(size * 0.3)), "i", font=f, fill=tuple(color) + (255,))
+        a = g.split()[3]
+        bb = a.getbbox()
+        if bb:
+            rows = [any(a.getpixel((xx, yy)) > 20 for xx in range(bb[0], bb[2])) for yy in range(bb[1], bb[3])]
+            gap = None
+            seen = False
+            for i, on in enumerate(rows):
+                if on:
+                    seen = True
+                elif seen:
+                    gap = i
+                    break
+            if gap:
+                ImageDraw.Draw(g).rectangle([bb[0] - 2, bb[1] - 2, bb[2] + 2, bb[1] + gap], fill=(0, 0, 0, 0))
+        lay.alpha_composite(g)
+    return lay
+
+
+def hand(img, text, cx, cy, size, color, angle=0, maxw=860):
+    while hfont(size).getlength(text) > maxw and size > 30:
+        size -= 4
+    lay = _hand_raw(text, size, color)
+    lay = lay.rotate(angle, expand=True, resample=Image.BICUBIC)
+    img.paste(lay, (int(cx - lay.width / 2), int(cy - lay.height / 2)), lay)
+
+
+def stroke(img, x0, x1, y, color, amp=5, width=7, angle=-3):
+    lay = Image.new("RGBA", (S, 120), (0, 0, 0, 0))
+    d = ImageDraw.Draw(lay)
+    pts = [(x0 + (x1 - x0) * t / 60, 60 + math.sin(t / 60 * math.pi * 2.2) * amp - (t / 60) * 6) for t in range(61)]
+    d.line(pts, fill=tuple(color) + (255,), width=width, joint="curve")
+    d.line([(pts[0][0] + 8, pts[0][1] + 10), (pts[-1][0] - 30, pts[-1][1] + 9)], fill=tuple(color) + (200,), width=3)
+    lay = lay.rotate(angle, resample=Image.BICUBIC)
+    img.paste(lay, (0, int(y - 60)), lay)
+
+
+def note_at(img, p, note, cx, cy, maxw, size=120, angle=-4, line=True):
+    if not note:
+        return
+    hand(img, note, cx, cy, size, p["text"], angle=angle, maxw=maxw)
+    if line:
+        w = min(maxw, int(hfont(size).getlength(note))) * 0.8
+        stroke(img, cx - w / 2, cx + w / 2, cy + size * 0.5, p["line"], angle=angle // 2)
+
+
 # ---------------- duzenler ----------------
 
-def l_center(img, cat, lvl, text, src, p):
+def l_center(img, cat, lvl, text, src, p, note=None):
     overlay_lines(img, p)
     top_label(img, p, cat, lvl)
-    size, lines = fit(tr_upper(text), 900, 520, 240, minsize=90, lh=0.98)
+    mh = 400 if note else 520
+    size, lines = fit(tr_upper(text), 900, mh, 240, minsize=90, lh=0.98)
     step = int(size * 0.98)
-    y = 170 + (560 - step * len(lines)) // 2
+    y = (150 if note else 170) + ((440 if note else 560) - step * len(lines)) // 2
     for i, l in enumerate(lines):
         draw_text(img, S // 2, y + i * step, l, size, p["text"], anchor="m")
     y += step * len(lines) + 26
     ImageDraw.Draw(img).line([(S // 2 - 60, y), (S // 2 + 60, y)], fill=p["text"], width=4)
     spaced(img, S // 2, y + 28, tr_upper(cat), 28, p["small"], gap=9, anchor="m")
+    note_at(img, p, note, S // 2 + 10, min(y + 150, 800), 800)
     footer(img, p, src)
 
 
-def l_chevron(img, cat, lvl, text, src, p):
+def l_chevron(img, cat, lvl, text, src, p, note=None):
     overlay_lines(img, p, cx=900, cy=300, step=140, count=7)
     d = ImageDraw.Draw(img)
     top_label(img, p, cat, lvl)
     chevrons(d, 90, 160, 120, True, p["text"])
     chevrons(d, S - 210, 880, 120, False, p["text"])
     spaced(img, S // 2, 160, tr_upper(cat), 30, p["text"], gap=9, anchor="m")
-    headline(img, text, 90, 250, 900, 580, p["text"], start=210, align="m")
+    headline(img, text, 90, 290, 900, 470, p["text"], start=210, align="m")
     footer(img, p, src, y=960, h=70)
 
 
-def l_big(img, cat, lvl, text, src, p):
+def l_big(img, cat, lvl, text, src, p, note=None):
     overlay_lines(img, p, cx=200, cy=900, step=130, count=9)
     top_label(img, p, cat, lvl)
     d = ImageDraw.Draw(img)
@@ -259,12 +342,13 @@ def l_big(img, cat, lvl, text, src, p):
     w = int(tw(t, 38) + 60)
     d.rectangle([70, 150, 70 + w, 150 + 62], fill=p["text"])
     draw_text(img, 100, 158, t, 38, p["on"])
-    headline(img, text, 70, 250, 940, 600, p["text"], start=220)
+    headline(img, text, 70, 250, 940, 500 if note else 600, p["text"], start=220)
+    note_at(img, p, note, 70 + 330, 790, 600, size=110)
     d.polygon([(0, 905), (S, 835), (S, 850), (0, 920)], fill=p["line"])
     footer(img, p, src, y=950, h=84)
 
 
-def l_split(img, cat, lvl, text, src, p):
+def l_split(img, cat, lvl, text, src, p, note=None):
     d = ImageDraw.Draw(img)
     # sag panel
     d.polygon([(700, 0), (S, 0), (S, S), (560, S)], fill=p["dark"])
@@ -275,11 +359,12 @@ def l_split(img, cat, lvl, text, src, p):
     w = int(tw(t, 38) + 60)
     d.rectangle([70, 150, 70 + w, 150 + 62], fill=p["text"])
     draw_text(img, 100, 158, t, 38, p["on"])
-    headline(img, text, 70, 250, 500, 600, p["text"], start=170)
+    headline(img, text, 70, 250, 500, 500 if note else 600, p["text"], start=170)
+    note_at(img, p, note, 70 + 240, 800, 480, size=100)
     footer(img, p, src, y=950, h=84)
 
 
-def l_bar(img, cat, lvl, text, src, p):
+def l_bar(img, cat, lvl, text, src, p, note=None):
     d = ImageDraw.Draw(img)
     overlay_lines(img, p, cx=900, cy=900, step=130, count=9)
     d.rectangle([0, 0, 190, S], fill=p["dark"])
@@ -293,18 +378,19 @@ def l_bar(img, cat, lvl, text, src, p):
     rot = text_layer(t, size, p["text"]).rotate(90, expand=True)
     img.paste(rot, (60, S - 120 - rot.height), rot)
     top_label(img, p, cat, lvl, x0=250)
-    headline(img, text, 250, 160, 760, 700, p["text"], start=200)
+    headline(img, text, 250, 160, 760, 560 if note else 700, p["text"], start=200)
+    note_at(img, p, note, 250 + 380, 830, 700, size=110)
     d = ImageDraw.Draw(img)
     d.line([(250, 960), (S - 70, 960)], fill=p["line"], width=2)
     spaced(img, 250, 985, "VEL SPOR", 24, p["text"], gap=8)
-    f = font(24, False)
+    f = font(30, False)
     tt = "Kaynak: " + src
     while f.getlength(tt) > 420 and len(tt) > 12:
         tt = tt[:-2] + "…"
     d.text((S - 70 - f.getlength(tt), 985), tt, font=f, fill=p["small"])
 
 
-def l_frame(img, cat, lvl, text, src, p):
+def l_frame(img, cat, lvl, text, src, p, note=None):
     overlay_lines(img, p)
     d = ImageDraw.Draw(img)
     d.rectangle([44, 44, S - 44, S - 44], outline=p["text"], width=3)
@@ -316,29 +402,38 @@ def l_frame(img, cat, lvl, text, src, p):
     d.rectangle([x0, 30, x0 + w, 100], fill=p["dark"], outline=p["text"], width=3)
     draw_text(img, S // 2, 44, t, f + 6, p["text"], anchor="m")
     spaced(img, S // 2, 128, "GALATASARAY · " + LEVELS[lvl], 24, p["small"], gap=7, anchor="m")
-    headline(img, text, 110, 190, 860, 650, p["text"], start=220, align="m")
+    headline(img, text, 110, 190, 860, 520 if note else 650, p["text"], start=220, align="m")
+    note_at(img, p, note, S // 2, 790, 780, size=110)
     footer(img, p, src, y=905, h=84)
 
 
 LAYOUTS = dict(center=l_center, chevron=l_chevron, big=l_big, split=l_split, bar=l_bar, frame=l_frame)
 
 
-def claim_badge(img):
-    d = ImageDraw.Draw(img)
-    w, h = 170, 54
-    x, y = S - 70 - w, 118
-    d.rectangle([x, y, x + w, y + h], fill=GOLD)
-    spaced(img, x + w // 2, y + 12, "İDDİA", 28, (40, 6, 14), gap=6, anchor="m")
+def claim_badge(img, p=None):
+    """Elle cizilmis daire icinde el yazisi 'iddia'."""
+    col = GOLD
+    cx, cy = S - 70 - 100, 190
+    ov = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    od = ImageDraw.Draw(ov)
+    for a, b in [(0, 0), (6, -5)]:
+        od.ellipse([cx - 100 + a, cy - 60 + b, cx + 100 - a, cy + 60 - b], outline=col + (255,), width=5)
+    ov = ov.rotate(-8, center=(cx, cy), resample=Image.BICUBIC)
+    img.paste(ov, (0, 0), ov)
+    hand(img, "iddia", cx, cy, 90, col, angle=-8, maxw=170)
 
 
-def make(cat, lvl, text, src, out, claim=False):
+def make(cat, lvl, text, src, out, claim=False, note=None):
     if cat not in CATS:
         cat = "Gündem"
     layout, pal = CATS[cat]
     p = PAL[pal]
     img = background(p)
-    LAYOUTS[layout](img, cat, lvl, text, src, p)
+    if layout == "chevron":
+        LAYOUTS[layout](img, cat, lvl, text, src, p)
+    else:
+        LAYOUTS[layout](img, cat, lvl, text, src, p, note=None if claim else note)
     if claim:
-        claim_badge(img)
+        claim_badge(img, p)
     img.save(out)
     return img

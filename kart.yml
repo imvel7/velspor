@@ -1,0 +1,49 @@
+name: Kart (ilk 11 / hava / baslik)
+on:
+  workflow_dispatch:
+    inputs:
+      mod: {description: "hava / ilk11 / baslik", default: "baslik"}
+      sol: {description: "Ev sahibi", default: "Galatasaray"}
+      sag: {description: "Rakip (hava/ilk11)", default: ""}
+      stadyum: {description: "Stadyum (hava)", default: ""}
+      sehir: {description: "Sehir (hava)", default: ""}
+      saat: {description: "Saat 20:00 (hava)", default: ""}
+      tarih: {description: "Tarih 2026-11-07 (hava)", default: ""}
+      kadro: {description: "1 Ugurcan, 42 Abdulkerim (K), ...", default: ""}
+      td: {description: "Teknik direktor", default: "Okan Buruk"}
+      yedekler: {description: "Yedekler, virgulle", default: ""}
+      headline: {description: "Kisa baslik (baslik modu)", default: ""}
+      note: {description: "El yazisi not (opsiyonel)", default: ""}
+      category: {description: "Kategori", default: "Gündem"}
+      level: {description: "A/B/C", default: "A"}
+      source: {description: "Kaynak", default: "Vel Spor"}
+      claim: {description: "Iddia mi? true/false", default: "false"}
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pip install pillow
+      - run: |
+          if [ "$MOD" = "baslik" ]; then python velspor.py; else python ozel.py; fi
+        env:
+          MOD: ${{ inputs.mod }}
+          SOL: ${{ inputs.sol }}
+          SAG: ${{ inputs.sag }}
+          STADYUM: ${{ inputs.stadyum }}
+          SEHIR: ${{ inputs.sehir }}
+          SAAT: ${{ inputs.saat }}
+          TARIH: ${{ inputs.tarih }}
+          KADRO: ${{ inputs.kadro }}
+          TD: ${{ inputs.td }}
+          YEDEKLER: ${{ inputs.yedekler }}
+          HEADLINE: ${{ inputs.headline }}
+          NOTE: ${{ inputs.note }}
+          CATEGORY: ${{ inputs.category }}
+          LEVEL: ${{ inputs.level }}
+          SOURCE: ${{ inputs.source }}
+          CLAIM: ${{ inputs.claim }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
