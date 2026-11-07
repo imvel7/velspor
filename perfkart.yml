@@ -1,0 +1,28 @@
+name: Performans karti testi
+on:
+  workflow_dispatch:
+    inputs:
+      lig:
+        description: "cl (Sampiyonlar Ligi) veya sl (Super Lig)"
+        default: "cl"
+      mac_id:
+        description: "Yuvron mac numarasi (Stuttgart: 658308499)"
+        default: "658308499"
+permissions:
+  contents: read
+jobs:
+  kart:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pillow numpy
+      - run: python yuvron.py
+        env:
+          YUVRON_KEY: ${{ secrets.YUVRON_KEY }}
+          YT_COMP: ${{ inputs.lig }}
+          YT_MATCH: ${{ inputs.mac_id }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
