@@ -1,0 +1,33 @@
+name: Vel Spor Bot
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+concurrency:
+  group: bot
+  cancel-in-progress: false
+permissions:
+  contents: write
+  models: read
+jobs:
+  haber:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pip install pillow numpy
+      - run: python velspor.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
+          HEALTH_REPORT: ${{ github.event_name == 'workflow_dispatch' && '1' || '' }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      - if: always()
+        run: |
+          git config user.name "velspor-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add state
+          git diff --cached --quiet || (git commit -m "haber durumu" && git pull --rebase -q && git push -q)
